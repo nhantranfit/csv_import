@@ -1,0 +1,39 @@
+<div class="container mt-4">
+  <h1>CSV Import Example</h1>
+  <div data-controller="csv-import">
+    <%= form_with url: import_csv_materials_path, method: :post, html: { multipart: true }, local: false, data: { action: "submit->csv-import#import" } do |form| %>
+      <div class="mb-3">
+        <%= form.file_field :file, class: "form-control", id: "csv-file-input", data: { target: "csv-import.fileInput", action: "change->csv-import#enableButton" } %>
+      </div>
+      <%= button_tag "Import CSV", class: "btn btn-primary", id: "import-button", disabled: true, data: { target: "csv-import.importButton" } %>
+    <% end %>
+  </div>
+
+  <table class="table table-striped table-bordered mt-3">
+  <thead>
+    <tr>
+      <th>品目名1</th>
+      <th>品目名2</th>
+      <th>標準単位</th>
+      <th>標準単価</th>
+      <th>Created at</th>
+      <th>Create by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @materials.each do |materials| %>
+    <tr>
+      <td><%= materials.material_name %></td>
+      <td><%= materials.material_item_name2 %></td>
+      <td><%= materials.standard_unit%></td>
+      <td><%= materials.standard_unit_cost%></td>
+      <td><%= materials.created_at %></td>
+      <td><%= materials.created_by %></td>
+    </tr>
+    <% end %>
+  </tbody>
+</table>
+<%=  pagy_nav(@pagy).html_safe  %>
+
+</div>
+

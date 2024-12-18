@@ -30,6 +30,11 @@ gem "jbuilder"
 
 gem 'google-cloud-firestore', '~> 2.16'
 
+gem 'byebug', '~> 11.1', '>= 11.1.3'
+gem 'csv', '~> 3.3', '>= 3.3.1'
+gem 'pagy'
+
+
 # Use Redis adapter to run Action Cable in production
 # gem "redis", "~> 4.0"
 

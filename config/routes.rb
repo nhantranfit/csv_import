@@ -3,4 +3,10 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "articles#index"
+
+  resources :materials do
+    collection do
+      post :import_csv  # Định nghĩa route cho việc import CSV
+    end
+  end
 end

@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import Swal from "sweetalert2";
 
 export default class extends Controller {
-  static targets = ["fileInput", "importButton"]
+  static targets = ["fileInput", "importButton", "deleteButton"]
 
   connect() {
     this.importButtonTarget.disabled = true;
@@ -75,6 +75,51 @@ export default class extends Controller {
         icon: "error",
         title: "Error!",
         text: "Something went wrong!"
+      });
+    }
+  }
+
+  async deleteAllImportedMaterials(event) {
+    event.preventDefault();
+
+    const confirmation = confirm("Are you sure you want to delete all imported materials?");
+    if (!confirmation) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/materials/delete_all_imported", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Successfully",
+          text: 'Deleted successfully'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            location.reload();
+          }
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error!",
+          text: result.message
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error!",
+        text: error.message,
       });
     }
   }

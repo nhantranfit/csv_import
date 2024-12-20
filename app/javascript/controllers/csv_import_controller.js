@@ -20,7 +20,6 @@ export default class extends Controller {
     const formData = new FormData();
     formData.append("file", file);
 
-    // Hiển thị popup với số phần trăm
     Swal.fire({
       title: "Importing CSV",
       html: '<b>Progress:</b> <span id="percent">0</span>%',

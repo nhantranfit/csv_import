@@ -1,10 +1,9 @@
-
 class MaterialsController < ApplicationController
+  before_action :firestore, only: [:index, :delete_all_imported]
   def index
-    materials = FirestoreClient.collection('materials').get
+    materials = @firestore.collection('materials').get
 
-    @materials = materials.map { |doc| doc.data }
-
+    @materials = materials.map { |material| material.data }
     @pagy, @materials = pagy_array(@materials)
   end
 
@@ -22,27 +21,22 @@ class MaterialsController < ApplicationController
   end
 
   def delete_all_imported
-    begin
-      # Khởi tạo Firestore client
-      firestore = Google::Cloud::Firestore.new
-
-      # Khởi tạo batch và truyền block cho nó
-      firestore.batch do |batch|
-        # Lấy tất cả tài liệu từ collection 'materials'
-        materials_ref = firestore.collection('materials')
-        materials_ref.get.each do |doc|
-          batch.delete(doc.reference)  # Thêm thao tác xóa vào batch
+    @firestore.batch do |batch|
+        materials_collection = firestore.collection('materials').get
+        materials_collection.each do |material|
+          batch.delete(material.reference)
         end
       end
-
-      render json: { success: true, message: "All imported materials have been deleted." }, status: :ok
-    rescue Google::Cloud::Error => e
-      render json: { success: false, message: "Error deleting materials: #{e.message}" }, status: :unprocessable_entity
-    rescue StandardError => e
-      render json: { success: false, message: "Error: #{e.message}" }, status: :unprocessable_entity
-    end
+    render json: { success: true, message: 'All imported materials have been deleted.' }, status: :ok
+  rescue Google::Cloud::Error => e
+    render json: { success: false, message: "Error deleting materials: #{e.message}" }, status: :unprocessable_entity
+  rescue StandardError => e
+    render json: { success: false, message: "Error: #{e.message}" }, status: :unprocessable_entity
   end
 
+  private
 
-
+  def firestore
+    @firestore = FirestoreClient
+  end
 end

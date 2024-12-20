@@ -1,30 +1,39 @@
-require 'csv'
-
 class CsvImportService
   class CsvImportServiceError < StandardError; end
 
-  def initialize(file)
+  def initialize(file, firestore_client = FirestoreClient)
     @file = file
     @errors = []
     @processed_count = 0
-    @firestore = FirestoreClient
+    @firestore = firestore_client
   end
 
   def import
-    return { success: false, errors: ["No file uploaded"] } if @file.blank?
+    return { success: false, errors: ['No file uploaded'] } if @file.blank?
 
     begin
-      # Firestore không sử dụng transaction giống như ActiveRecord,
-      # vì vậy mỗi thao tác với Firestore sẽ thực hiện riêng biệt
-      line_number = 1
-      CSV.foreach(@file, headers: true, encoding: 'bom|utf-8') do |row|
-        line_number += 1
-        material = parse_row(line_number, row)
-        if material[:valid]
-          create_material_in_firestore(material[:data])
+      imported_materials = []
+      @firestore.transaction do |tx|
+        line_number = 1
+        CSV.foreach(@file, headers: true, encoding: 'bom|utf-8') do |row|
+          line_number += 1
+          material = parse_row(line_number, row)
+
+          raise CsvImportServiceError, material[:error] unless material[:valid]
+
+          if imported_materials.include?(material[:data][:material_name])
+            raise CsvImportServiceError, "Duplicate material name: #{material[:data][:material_name]} in line #{line_number}. Please recheck this file."
+          end
+
+          # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
+          if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit], material[:data][:standard_unit_cost])
+            raise CsvImportServiceError, "Duplicate standard unit or standard unit cost in Firestore at line #{line_number}.
+                                            Please recheck this file."
+          end
+
+          tx.set(@firestore.doc("materials/#{SecureRandom.uuid}"), material[:data])
+          imported_materials << material[:data][:material_name]
           @processed_count += 1
-        else
-          raise CsvImportServiceError, material[:error]
         end
       end
 
@@ -32,7 +41,7 @@ class CsvImportService
     rescue CsvImportServiceError => e
       { success: false, errors: [e.message] }
     rescue StandardError => e
-      { success: false, errors: [e.message] }
+      { success: false, errors: ["Unexpected error: #{e.message}"] }
     end
   end
 
@@ -54,23 +63,37 @@ class CsvImportService
 
   def handle_conditional(line_number, material_data)
     if material_data[:material_name].blank?
-      { valid: false, error: "Material name (品目名1) cannot be empty in line #{line_number}. Please recheck this file!" }
-    elsif material_exists_in_firestore?(material_data[:material_name])
-      { valid: false, error: "Duplicate material name: #{material_data[:material_name]} in line #{line_number}. Please recheck this file." }
+      { valid: false,
+        error: "Material name (品目名1) cannot be empty in line #{line_number}. Please recheck this file!" }
+    elsif material_exists_in_firestore_by_name?(material_data[:material_name])
+      { valid: false,
+        error: "Duplicate material name in Firestore: #{material_data[:material_name]} in line #{line_number}. Please recheck this file." }
+    elsif standard_unit_and_cost_exists_in_firestore?(material_data[:standard_unit], material_data[:standard_unit_cost])
+      { valid: false,
+        error: "Duplicate standard unit or standard unit cost in Firestore in line #{line_number}. Please recheck this file." }
     else
       { valid: true, data: material_data }
     end
   end
 
-  # Kiểm tra sự tồn tại của vật liệu trên Firestore
-  def material_exists_in_firestore?(material_name)
+  def material_exists_in_firestore_by_name?(material_name)
     result = @firestore.collection('materials').where('material_name', '==', material_name).limit(1).get
-    result.any?  # trả về true nếu tìm thấy vật liệu với tên đó
+    result.any?
+  rescue StandardError => e
+    @errors << "Error while checking Firestore for material '#{material_name}': #{e.message}"
+    false
   end
 
-  # Thêm vật liệu vào Firestore
-  def create_material_in_firestore(material_data)
-    @firestore.collection('materials').add(material_data)
+  # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
+  def standard_unit_and_cost_exists_in_firestore?(standard_unit, standard_unit_cost)
+    result = @firestore.collection('materials')
+                        .where('standard_unit', '==', standard_unit)
+                        .where('standard_unit_cost', '==', standard_unit_cost)
+                        .limit(1)
+                        .get
+    result.any?
+  rescue StandardError => e
+    @errors << "Error while checking Firestore for standard unit '#{standard_unit}' and standard unit cost '#{standard_unit_cost}': #{e.message}"
+    false
   end
 end
-

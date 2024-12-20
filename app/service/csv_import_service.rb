@@ -22,17 +22,20 @@ class CsvImportService
           raise CsvImportServiceError, material[:error] unless material[:valid]
 
           if imported_materials.include?(material[:data][:material_name])
-            raise CsvImportServiceError, "Duplicate material name: #{material[:data][:material_name]} in line #{line_number}. Please recheck this file."
+            raise CsvImportServiceError,
+                  "Please check #{line_number} lines. #{material[:data][:material_name]} columns because duplicated"
           end
 
           if imported_materials.include?(material[:data][:material_item_name2])
-            raise CsvImportServiceError, "Duplicate material name item 2: #{material[:data][:material_item_name2]} in line #{line_number}. Please recheck this file."
+            raise CsvImportServiceError,
+                  "Please check #{line_number} lines. #{material[:data][:material_item_name2]} columns because duplicated"
           end
 
           # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
-          if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit], material[:data][:standard_unit_cost])
-            raise CsvImportServiceError, "Duplicate standard unit or standard unit cost in Firestore at line #{line_number}.
-                                            Please recheck this file."
+          if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit],
+                                                         material[:data][:standard_unit_cost])
+            raise CsvImportServiceError,
+                  "Please check #{line_number} lines. #{material[:data][:standard_unit]} or #{material[:data][:standard_unit_cost]} columns because duplicated"
           end
 
           tx.set(@firestore.doc("materials/#{SecureRandom.uuid}"), material[:data])
@@ -68,16 +71,16 @@ class CsvImportService
   def handle_conditional(line_number, material_data)
     if material_data[:material_name].blank?
       { valid: false,
-        error: "Material name (品目名1) cannot be empty in line #{line_number}. Please recheck this file!" }
+        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause cannot blank" }
     elsif material_exists_in_firestore_by_name?(material_data[:material_name])
       { valid: false,
-        error: "Duplicate material name in Firestore: #{material_data[:material_name]} in line #{line_number}. Please recheck this file." }
+        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause duplicated" }
     elsif material_exists_in_firestore_by_name_item?(material_data[:material_item_name2])
       { valid: false,
-        error: "Duplicate material name in Firestore: #{material_data[:material_item_name2]} in line #{line_number}. Please recheck this file." }
+        error: "Please check #{line_number} lines. #{material_data[:material_item_name2]} column beacause cannot blank" }
     elsif standard_unit_and_cost_exists_in_firestore?(material_data[:standard_unit], material_data[:standard_unit_cost])
       { valid: false,
-        error: "Duplicate standard unit or standard unit cost in Firestore in line #{line_number}. Please recheck this file." }
+        error: "Please check #{line_number} lines. #{material_data[:standard_unit]} or #{material_data[:standard_unit_cost]} column beacause cannot blank" }
     else
       { valid: true, data: material_data }
     end
@@ -102,10 +105,10 @@ class CsvImportService
   # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
   def standard_unit_and_cost_exists_in_firestore?(standard_unit, standard_unit_cost)
     result = @firestore.collection('materials')
-                        .where('standard_unit', '==', standard_unit)
-                        .where('standard_unit_cost', '==', standard_unit_cost)
-                        .limit(1)
-                        .get
+                       .where('standard_unit', '==', standard_unit)
+                       .where('standard_unit_cost', '==', standard_unit_cost)
+                       .limit(1)
+                       .get
     result.any?
   rescue StandardError => e
     @errors << "Error while checking Firestore for standard unit '#{standard_unit}' and standard unit cost '#{standard_unit_cost}': #{e.message}"

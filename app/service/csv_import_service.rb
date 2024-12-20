@@ -25,6 +25,10 @@ class CsvImportService
             raise CsvImportServiceError, "Duplicate material name: #{material[:data][:material_name]} in line #{line_number}. Please recheck this file."
           end
 
+          if imported_materials.include?(material[:data][:material_item_name2])
+            raise CsvImportServiceError, "Duplicate material name item 2: #{material[:data][:material_item_name2]} in line #{line_number}. Please recheck this file."
+          end
+
           # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
           if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit], material[:data][:standard_unit_cost])
             raise CsvImportServiceError, "Duplicate standard unit or standard unit cost in Firestore at line #{line_number}.
@@ -68,12 +72,23 @@ class CsvImportService
     elsif material_exists_in_firestore_by_name?(material_data[:material_name])
       { valid: false,
         error: "Duplicate material name in Firestore: #{material_data[:material_name]} in line #{line_number}. Please recheck this file." }
+    elsif material_exists_in_firestore_by_name_item?(material_data[:material_item_name2])
+      { valid: false,
+        error: "Duplicate material name in Firestore: #{material_data[:material_item_name2]} in line #{line_number}. Please recheck this file." }
     elsif standard_unit_and_cost_exists_in_firestore?(material_data[:standard_unit], material_data[:standard_unit_cost])
       { valid: false,
         error: "Duplicate standard unit or standard unit cost in Firestore in line #{line_number}. Please recheck this file." }
     else
       { valid: true, data: material_data }
     end
+  end
+
+  def material_exists_in_firestore_by_name_item?(material_item_name2)
+    result = @firestore.collection('materials').where('material_item_name2', '==', material_item_name2).limit(1).get
+    result.any?
+  rescue StandardError => e
+    @errors << "Error while checking Firestore for material '#{material_item_name2}': #{e.message}"
+    false
   end
 
   def material_exists_in_firestore_by_name?(material_name)

@@ -34,6 +34,7 @@
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 .env
-/config/database.yml
 /config/firebase/import-csv-339f2-firebase-adminsdk-9ozqu-6dc15ddfa0.json
-
+/coverage/*
+config/database.yml
+Gemfile.lock

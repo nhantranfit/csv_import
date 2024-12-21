@@ -71,16 +71,16 @@ class CsvImportService
   def handle_conditional(line_number, material_data)
     if material_data[:material_name].blank?
       { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause cannot blank" }
+        error: "Please check #{line_number} lines. 品目名1 column beacause cannot blank." }
     elsif material_exists_in_firestore_by_name?(material_data[:material_name])
       { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause duplicated" }
+        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause duplicated." }
     elsif material_exists_in_firestore_by_name_item?(material_data[:material_item_name2])
       { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:material_item_name2]} column beacause cannot blank" }
+        error: "Please check #{line_number} lines. 品目名2 column beacause cannot blank." }
     elsif standard_unit_and_cost_exists_in_firestore?(material_data[:standard_unit], material_data[:standard_unit_cost])
       { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:standard_unit]} or #{material_data[:standard_unit_cost]} column beacause cannot blank" }
+        error: "Please check #{line_number} lines. #{material_data[:standard_unit]} or #{material_data[:standard_unit_cost]} column beacause cannot blank." }
     else
       { valid: true, data: material_data }
     end

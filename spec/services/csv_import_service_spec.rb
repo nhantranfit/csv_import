@@ -18,7 +18,7 @@ RSpec.describe CsvImportService, type: :service do
     allow(firestore_client).to receive(:collection).with('materials').and_return(query_double)
     allow(query_double).to receive(:where).and_return(query_double)
     allow(query_double).to receive(:limit).with(1).and_return(query_double)
-    allow(query_double).to receive(:get).and_return([]) 
+    allow(query_double).to receive(:get).and_return([])
   end
 
   describe '#import' do
@@ -38,7 +38,7 @@ RSpec.describe CsvImportService, type: :service do
       it 'returns an error message for empty material name' do
         result = service.import
         expect(result[:success]).to eq(false)
-        expect(result[:errors]).to include('Material name (品目名1) cannot be empty in line 2. Please recheck this file!')
+        expect(result[:errors]).to include('Please check 2 lines. 品目名1 column beacause cannot blank.')
       end
     end
 
@@ -50,7 +50,7 @@ RSpec.describe CsvImportService, type: :service do
 
         result = service.import
         expect(result[:success]).to eq(false)
-        expect(result[:errors]).to include('Duplicate material name in Firestore: Material A in line 2. Please recheck this file.')
+        expect(result[:errors]).to include('Please check 2 lines. Material A column beacause duplicated.')
       end
     end
 

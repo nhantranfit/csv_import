@@ -13,9 +13,19 @@ class CsvImportService
 
     begin
       imported_materials = []
+      raw_content = File.read(@file, mode: 'rb')
+                        .force_encoding('Shift_JIS')
+                        .encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+
+      temp_file = Rails.root.join('tmp', 'cleaned_file.csv')
+      File.write(temp_file, raw_content)
+
+      options = { file_encoding: 'UTF-8' }
+
       @firestore.transaction do |tx|
         line_number = 1
-        CSV.foreach(@file, headers: true, encoding: 'bom|utf-8') do |row|
+        SmarterCSV.process(temp_file, options) do |row|
+
           line_number += 1
           material = parse_row(line_number, row)
 
@@ -23,17 +33,17 @@ class CsvImportService
 
           if imported_materials.include?(material[:data][:material_name])
             raise CsvImportServiceError,
-                  "Please check #{line_number} lines. #{material[:data][:material_name]} columns because duplicated"
+                  "Please check #{line_number} lines. 品目名1 columns because duplicated"
           end
 
           if imported_materials.include?(material[:data][:material_item_name2])
             raise CsvImportServiceError,
-                  "Please check #{line_number} lines. #{material[:data][:material_item_name2]} columns because duplicated"
+                  "Please check #{line_number} lines. 品目名2 columns because duplicated"
           end
 
           # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
           if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit],
-                                                         material[:data][:standard_unit_cost])
+                                                        material[:data][:standard_unit_cost])
             raise CsvImportServiceError,
                   "Please check #{line_number} lines. #{material[:data][:standard_unit]} or #{material[:data][:standard_unit_cost]} columns because duplicated"
           end
@@ -55,11 +65,12 @@ class CsvImportService
   private
 
   def parse_row(line_number, row)
+    item = row.first
     material_data = {
-      material_name: row['品目名1'],
-      material_item_name2: row['品目名2'],
-      standard_unit: row['標準単位'],
-      standard_unit_cost: row['標準単価'].to_f,
+      material_name: item[:品目名1],
+      material_item_name2: item[:品目名2],
+      standard_unit: item[:標準単位],
+      standard_unit_cost: item[:標準単価].to_f,
       created_at: Time.current,
       created_by: 'CSV',
       updated_at: Time.current,

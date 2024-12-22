@@ -53,8 +53,10 @@ class CsvImportService
       raise CsvImportServiceError, "Please check #{line_number} lines. 品目名1 column because be duplicated"
     elsif imported_materials.include?(data[:material_item_name2])
       raise CsvImportServiceError, "Please check #{line_number} lines. 品目名2 column because be duplicated"
-    elsif imported_materials.include?(data[:standard_unit]) && imported_materials.include?(data[:standard_unit_cost])
-      raise CsvImportServiceError, "Please check #{line_number} lines. 標準単位 and 標準単価 column because be duplicated"
+    elsif imported_materials.include?(data[:standard_unit])
+      raise CsvImportServiceError, "Please check #{line_number} lines. 標準単位 column because be duplicated"
+    elsif imported_materials.include?(data[:standard_unit_cost])
+      raise CsvImportServiceError, "Please check #{line_number} lines. 標準単価 column because be duplicated"
     end
   end
 

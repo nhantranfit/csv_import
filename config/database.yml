@@ -13,7 +13,7 @@ development:
 
 test:
   <<: *default
-  database: <%= ENV.fetch("DB_NAME_TEST", "your_test_db") %>
+  database: csv_test
 
 production:
   <<: *default

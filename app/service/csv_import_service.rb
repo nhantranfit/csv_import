@@ -25,33 +25,17 @@ class CsvImportService
       @firestore.transaction do |tx|
         line_number = 1
         SmarterCSV.process(temp_file, options) do |row|
-
           line_number += 1
           material = parse_row(line_number, row)
-
           raise CsvImportServiceError, material[:error] unless material[:valid]
 
-          if imported_materials.include?(material[:data][:material_name])
-            raise CsvImportServiceError,
-                  "Please check #{line_number} lines. 品目名1 columns because duplicated"
-          end
-
-          if imported_materials.include?(material[:data][:material_item_name2])
-            raise CsvImportServiceError,
-                  "Please check #{line_number} lines. 品目名2 columns because duplicated"
-          end
-
-          # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
-          if standard_unit_and_cost_exists_in_firestore?(material[:data][:standard_unit],
-                                                        material[:data][:standard_unit_cost])
-            raise CsvImportServiceError,
-                  "Please check #{line_number} lines. #{material[:data][:standard_unit]} or #{material[:data][:standard_unit_cost]} columns because duplicated"
-          end
-
-          tx.set(@firestore.doc("materials/#{SecureRandom.uuid}"), material[:data])
+          check_duplicate_value(imported_materials, material[:data], line_number)
           imported_materials << material[:data][:material_name]
+          tx.set(@firestore.doc("materials/#{SecureRandom.uuid}"), material[:data])
           @processed_count += 1
         end
+        delete_all_current_data(tx)
+
       end
 
       { success: true, message: "Successfully imported #{@processed_count} rows." }
@@ -64,8 +48,26 @@ class CsvImportService
 
   private
 
+  def check_duplicate_value(imported_materials, data, line_number)
+    if imported_materials.include?(data[:material_name])
+      raise CsvImportServiceError, "Please check #{line_number} lines. 品目名1 column because be duplicated"
+    elsif imported_materials.include?(data[:material_item_name2])
+      raise CsvImportServiceError, "Please check #{line_number} lines. 品目名2 column because be duplicated"
+    elsif imported_materials.include?(data[:standard_unit]) && imported_materials.include?(data[:standard_unit_cost])
+      raise CsvImportServiceError, "Please check #{line_number} lines. 標準単位 and 標準単価 column because be duplicated"
+    end
+  end
+
+  def delete_all_current_data(transaction)
+    materials_ref = @firestore.col('materials')
+    materials_ref.get.each do |doc|
+      transaction.delete(doc.ref)
+    end
+  end
+
   def parse_row(line_number, row)
     item = row.first
+
     material_data = {
       material_name: item[:品目名1],
       material_item_name2: item[:品目名2],
@@ -76,53 +78,19 @@ class CsvImportService
       updated_at: Time.current,
       updated_by: 'CSV'
     }
-    handle_conditional(line_number, material_data)
+
+    validate_row(line_number, material_data)
   end
 
-  def handle_conditional(line_number, material_data)
+  def validate_row(line_number, material_data)
     if material_data[:material_name].blank?
       { valid: false,
-        error: "Please check #{line_number} lines. 品目名1 column beacause cannot blank." }
-    elsif material_exists_in_firestore_by_name?(material_data[:material_name])
+        error: "Please check #{line_number} lines. 品目名1 column because cannot be blank." }
+    elsif material_data[:standard_unit].blank?
       { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:material_name]} column beacause duplicated." }
-    elsif material_exists_in_firestore_by_name_item?(material_data[:material_item_name2])
-      { valid: false,
-        error: "Please check #{line_number} lines. 品目名2 column beacause cannot blank." }
-    elsif standard_unit_and_cost_exists_in_firestore?(material_data[:standard_unit], material_data[:standard_unit_cost])
-      { valid: false,
-        error: "Please check #{line_number} lines. #{material_data[:standard_unit]} or #{material_data[:standard_unit_cost]} column beacause cannot blank." }
+        error: "Please check #{line_number} lines. 標準単位 column because cannot be blank." }
     else
       { valid: true, data: material_data }
     end
-  end
-
-  def material_exists_in_firestore_by_name_item?(material_item_name2)
-    result = @firestore.collection('materials').where('material_item_name2', '==', material_item_name2).limit(1).get
-    result.any?
-  rescue StandardError => e
-    @errors << "Error while checking Firestore for material '#{material_item_name2}': #{e.message}"
-    false
-  end
-
-  def material_exists_in_firestore_by_name?(material_name)
-    result = @firestore.collection('materials').where('material_name', '==', material_name).limit(1).get
-    result.any?
-  rescue StandardError => e
-    @errors << "Error while checking Firestore for material '#{material_name}': #{e.message}"
-    false
-  end
-
-  # Kiểm tra tính duy nhất của standard_unit và standard_unit_cost
-  def standard_unit_and_cost_exists_in_firestore?(standard_unit, standard_unit_cost)
-    result = @firestore.collection('materials')
-                       .where('standard_unit', '==', standard_unit)
-                       .where('standard_unit_cost', '==', standard_unit_cost)
-                       .limit(1)
-                       .get
-    result.any?
-  rescue StandardError => e
-    @errors << "Error while checking Firestore for standard unit '#{standard_unit}' and standard unit cost '#{standard_unit_cost}': #{e.message}"
-    false
   end
 end
